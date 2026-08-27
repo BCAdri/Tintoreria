@@ -39,4 +39,6 @@ r.patch ('/orders/:id/status',   authenticate, requireStore, orders.updateStatus
 r.post  ('/orders/:id/payments', authenticate, requireStore, orders.addPayment);
 r.delete('/orders/:id',          authenticate, requireStore, orders.remove);
 
+// ── Cash Register ─────────────────────────────────────────────────────────
+r.get('/cash', authenticate, requireStore, dashboard.cashRegister)
 module.exports = r;

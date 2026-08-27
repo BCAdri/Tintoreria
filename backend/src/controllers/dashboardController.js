@@ -94,28 +94,26 @@ function globalStats(req, res, next) {
     const perStore = db.prepare(`
       SELECT
         s.id, s.name, s.city,
-        COALESCE(SUM(p.amount), 0)   AS total_revenue,
+        COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.store_id = s.id), 0) AS total_revenue,
         COUNT(DISTINCT o.id)         AS total_orders,
         COUNT(DISTINCT c.id)         AS total_clients
       FROM stores s
-      LEFT JOIN orders o   ON o.store_id = s.id
-      LEFT JOIN payments p ON p.store_id = s.id
-      LEFT JOIN clients c  ON c.store_id = s.id
+      LEFT JOIN orders o  ON o.store_id = s.id
+      LEFT JOIN clients c ON c.store_id = s.id
       WHERE s.id IN (${placeholders})
       GROUP BY s.id
     `).all(...storeIds);
 
     const totals = db.prepare(`
       SELECT
-        COALESCE(SUM(p.amount), 0) AS total_revenue,
+        COALESCE((SELECT SUM(amount) FROM payments WHERE store_id IN (${placeholders})), 0) AS total_revenue,
         COUNT(DISTINCT o.id)       AS total_orders,
         COUNT(DISTINCT c.id)       AS total_clients
       FROM stores s
-      LEFT JOIN orders o   ON o.store_id = s.id
-      LEFT JOIN payments p ON p.store_id = s.id
-      LEFT JOIN clients c  ON c.store_id = s.id
+      LEFT JOIN orders o  ON o.store_id = s.id
+      LEFT JOIN clients c ON c.store_id = s.id
       WHERE s.id IN (${placeholders})
-    `).get(...storeIds);
+    `).get(...storeIds, ...storeIds);
 
     const monthlyRevenue = db.prepare(`
       SELECT strftime('%Y-%m', created_at) AS month, SUM(amount) AS total
@@ -129,4 +127,37 @@ function globalStats(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { storeStats, globalStats };
+function cashRegister(req, res, next) {
+  try {
+    const db  = getDb()
+    const day = req.query.date || new Date().toISOString().slice(0, 10)
+
+    const payments = db.prepare(`
+      SELECT p.*, c.name AS client_name, o.total AS order_total
+      FROM payments p
+      JOIN orders o  ON o.id = p.order_id
+      JOIN clients c ON c.id = o.client_id
+      WHERE p.store_id = ?
+        AND date(p.created_at) = ?
+      ORDER BY p.created_at DESC
+    `).all(req.storeId, day)
+
+    const pending = db.prepare(`
+      SELECT o.id, o.status, o.total, o.created_at,
+        c.name AS client_name,
+        COALESCE(SUM(p.amount), 0) AS paid
+      FROM orders o
+      JOIN clients c ON c.id = o.client_id
+      LEFT JOIN payments p ON p.order_id = o.id
+      WHERE o.store_id = ? AND o.status != 'delivered'
+      GROUP BY o.id
+      HAVING o.total > paid
+      ORDER BY o.created_at DESC
+    `).all(req.storeId)
+
+    db.close()
+    res.json({ payments, pending })
+  } catch (err) { next(err) }
+}
+
+module.exports = { storeStats, globalStats, cashRegister }

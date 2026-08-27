@@ -120,33 +120,20 @@ const methodIcons = { cash: '💵', card: '💳', bizum: '📱' }
 const methodNames = { cash: 'Efectivo', card: 'Tarjeta', bizum: 'Bizum' }
 
 const summary = computed(() => {
-  const base = { total: 0, cash: 0, card: 0, bizum: 0 }
   return payments.value.reduce((acc, p) => {
     acc.total += p.amount
     acc[p.method] = (acc[p.method] || 0) + p.amount
     return acc
-  }, base)
+  }, { total: 0, cash: 0, card: 0, bizum: 0 })
 })
 
 async function load() {
   loading.value = true
   const day = date.value.toISOString().slice(0, 10)
   try {
-    const [paymentsRes, ordersRes] = await Promise.all([
-      api.get('/orders', { params: { from: day, to: day } }),
-      api.get('/orders', { params: {} }),
-    ])
-    // Extract payments from all orders of that day
-    const dayOrders = paymentsRes.data
-    payments.value = dayOrders.flatMap(o => []).concat(
-      // We query payments via orders endpoint — build from order data
-      dayOrders.map(o => ({
-        id: o.id, order_id: o.id, client_name: o.client_name,
-        amount: o.paid, method: 'cash', created_at: o.created_at,
-      })).filter(p => p.amount > 0)
-    )
-    // Pending orders (not fully paid)
-    pending.value = ordersRes.data.filter(o => o.status !== 'delivered' && o.paid < o.total)
+    const { data } = await api.get('/cash', { params: { date: day } })
+    payments.value = data.payments
+    pending.value  = data.pending
   } finally { loading.value = false }
 }
 
