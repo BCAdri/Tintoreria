@@ -119,7 +119,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/utils/api'
@@ -127,6 +127,9 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const auth   = useAuthStore()
+watch(() => auth.activeStoreId, () => {
+  load()
+})
 const router = useRouter()
 const stats   = ref(null)
 const loading = ref(true)
@@ -170,7 +173,9 @@ const chartDays = computed(() => {
 const totalPm  = computed(() => stats.value?.paymentMethods.reduce((s, p) => s + p.total, 0) || 1)
 const pmPct    = total => Math.max((total / totalPm.value) * 100, 4)
 
-onMounted(async () => {
+async function load() {
+  loading.value = true
+  stats.value = null
   try {
     const { data } = await api.get('/dashboard')
     stats.value = data
@@ -179,7 +184,10 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(load)
+
 </script>
 
 <style scoped>
