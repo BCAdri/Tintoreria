@@ -39,7 +39,7 @@ function storeStats(req, res, next) {
       SELECT gt.name, SUM(oi.qty) AS total_qty, SUM(oi.qty * oi.unit_price) AS revenue
       FROM order_items oi
       JOIN garment_types gt ON gt.id = oi.garment_type_id
-      JOIN orders o ON o.order_id = oi.order_id
+      JOIN orders o ON o.id = oi.order_id
       WHERE o.store_id = ?
       GROUP BY gt.id ORDER BY total_qty DESC LIMIT 5
     `).all(sid);
