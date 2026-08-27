@@ -4,8 +4,6 @@ A full-stack point-of-sale and management system for dry cleaning businesses. Bu
 
 One account handles multiple stores, with fully isolated data per location and a global dashboard that consolidates everything.
 
-> **Private repository** — demo available on request.
-
 ---
 
 ## Features
